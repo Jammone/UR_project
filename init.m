@@ -3,7 +3,7 @@
 
 
 %% param setting
-syms theta dtheta real
+syms q1 q2 dq1 dq2 ddq1 ddq2 real
 
 mb = 5;              % bar mass
 MB = 30;             % body mass
@@ -13,11 +13,26 @@ I = 0.05;            % inerzia
 
 
 %% model without uncertainties
-% M*[ddq1; ddq2] + n = [tau_1;0]
+% M*[ddq1; ddq2] + n = [u;0]
 
-M = [mb+Mb, m*l*cos(theta);
+M = [mb+Mb, m*l*cos(q2);
      m*l*cos(theta), I+ mb*l*2;
      ];
-n = [-mb*l*sin(theta)*dtheta;
-    -mb+g*l*sin(theta)];
+n = [-mb*l*sin(q2)*dq2;
+    -mb+g*l*sin(q2)];
+
+% dstate = f(state) + g(state)*u
+state = [q1,q2,dq1,dq2]';
+
+f = [dq1;
+    dq2;
+    inv(M)*(mb*l*sin(q2)*dq2);
+    inv(M)*(mb*l*sin(q2))];
+
+g =[0;
+    0;
+    inv(M);
+    0];
+
+dstate = f + g*[u;0];
 
