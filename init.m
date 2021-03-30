@@ -16,7 +16,7 @@ I = 0.05;            % inerzia
 % M*[ddq1; ddq2] + n = [u;0]
 
 M = [mb+Mb, m*l*cos(q2);
-     m*l*cos(theta), I+ mb*l*2;
+     m*l*cos(theta), I+ mb*l^2;
      ];
 n = [-mb*l*sin(q2)*dq2;
     -mb+g*l*sin(q2)];
