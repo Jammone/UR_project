@@ -61,8 +61,9 @@ dstate = f + g*[u1;0];
  j2y = j1y + l2*cos(INITIAL_CONDITIONS(2)+INITIAL_CONDITIONS(1));
  
  hold on
- joint1 = plot([0,j1x],[0,j1y],'-*','MarkerFaceColor','red');
- joint2 = plot([j1x,j2x],[j1y,j2y],'-*','MarkerFaceColor','green');
+ joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
+ joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
+ tip = plot(j2x,j2y,'>','MarkerFaceColor','red','Color','red');
  xlim([-1 1]);
  ylim([-1,1]);
  p = plot(0,0,'s','MarkerFaceColor','blue' ); 
@@ -73,14 +74,16 @@ hold off
      figure(fig)
      delete(joint1);
      delete(joint2);
+     delete(tip);
      j1x = l1*sin(Sq1.Data(k));
      j1y = l1*cos(Sq1.Data(k));
      j2x = j1x + l2*sin(Sq2.Data(k)+Sq1.Data(k))
      j2y = j1y + l2*cos(Sq2.Data(k)+Sq1.Data(k))
  
  hold on
- joint1 = plot([0,j1x],[0,j1y],'-*','MarkerFaceColor','red');
- joint2 = plot([j1x,j2x],[j1y,j2y],'-*','MarkerFaceColor','green');
+ joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
+ joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
+ tip = plot(j2x,j2y,'>','MarkerFaceColor','red','Color','red');
  xlim([-1 1]);
  ylim([-1,1]);
  hold off
