@@ -20,7 +20,7 @@ g = 9.81;            % constante di accelerazione gravitazionale
 
 PARAM= [m1,m2,I1,lc1,l2,lc2,I1,I2];
 INITIAL_CONDITIONS = [pi/3,pi/2,0,0];
-KP_GAIN = [200,0;0,200];
+KP_GAIN = [80,0;0,25];
 KD_GAIN = [9,0;0,9];
 DES_POS = [0,0,0,0];
 %% model without uncertainties
@@ -51,8 +51,9 @@ g =[0,0;
     inv(M)];
 
 dstate = f + g*[u1;0];
+
 sim("Modello_Simulink.slx");
-%plot gragico dinamico avanzato
+% %plot gragico dinamico avanzato
  fig = figure();
  j1x = l1*sin(INITIAL_CONDITIONS(1));
  j1y = l1*cos(INITIAL_CONDITIONS(1));
@@ -66,29 +67,29 @@ sim("Modello_Simulink.slx");
  xlim([-1 1]);
  ylim([-1,1]);
  p = plot(0,0,'s','MarkerFaceColor','blue' ); 
- 
+%  
 hold off 
  
- for k = 2:length(Sq1.Data)
-     figure(fig)
-     delete(joint1);
-     delete(joint2);
-     delete(tip);
-     j1x = l1*sin(Sq1.Data(k));
-     j1y = l1*cos(Sq1.Data(k));
-     j2x = j1x + l2*sin(Sq2.Data(k)+Sq1.Data(k))
-     j2y = j1y + l2*cos(Sq2.Data(k)+Sq1.Data(k))
- 
- hold on
- joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
- joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
- tip = plot(j2x,j2y,'>','MarkerFaceColor','red','Color','red');
- xlim([-1 1]);
- ylim([-1,1]);
- hold off
-     pause(0.005);%faster than drawnow
-     
- end
+%  for k = 2:length(Sq1.Data)
+%      figure(fig)
+%      delete(joint1);
+%      delete(joint2);
+%      delete(tip);
+%      j1x = l1*sin(Sq1.Data(k));
+%      j1y = l1*cos(Sq1.Data(k));
+%      j2x = j1x + l2*sin(Sq2.Data(k)+Sq1.Data(k))
+%      j2y = j1y + l2*cos(Sq2.Data(k)+Sq1.Data(k))
+%  
+%  hold on
+%  joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
+%  joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
+%  tip = plot(j2x,j2y,'>','MarkerFaceColor','red','Color','red');
+%  xlim([-1 1]);
+%  ylim([-1,1]);
+%  hold off
+%      pause(0.005);%faster than drawnow
+%      
+%  end
 
 
 
