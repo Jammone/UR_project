@@ -20,7 +20,7 @@ g = 9.81;            % constante di accelerazione gravitazionale
 
 PARAM= [m1,m2,I1,lc1,l2,lc2,I1,I2];
 INITIAL_CONDITIONS = [pi/3,pi/2,0,0];
-KP_GAIN = [80,0;0,80];
+KP_GAIN = [200,0;0,200];
 KD_GAIN = [9,0;0,9];
 DES_POS = [0,0,0,0];
 %% model without uncertainties
@@ -51,8 +51,7 @@ g =[0,0;
     inv(M)];
 
 dstate = f + g*[u1;0];
- sim("untitled1.slx");
-
+sim("Modello_Simulink.slx");
 %plot gragico dinamico avanzato
  fig = figure();
  j1x = l1*sin(INITIAL_CONDITIONS(1));
