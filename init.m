@@ -1,6 +1,8 @@
 % inverted pendulum (segway)
 % progetto di <studente 1>, <studente 2> e <studente 3>
 
+clc;
+clear;
 
 %% param setting
 syms q1 q2 dq1 dq2 ddq1 ddq2 u1 real
@@ -17,7 +19,10 @@ I2 = 0.05;
 g = 9.81;            % constante di accelerazione gravitazionale
 
 PARAM= [m1,m2,I1,lc1,l2,lc2,I1,I2];
-
+INITIAL_CONDITIONS = [pi/8,pi/6,0,0];
+KP_GAIN = [80,0;0,80];
+KD_GAIN = [9,0;0,9];
+DES_POS = [0,0,0,0];
 %% model without uncertainties
 % M*[ddq1; ddq2] + n = [u;0]
 a1 = I1+ I2+ m1*lc1^2+m2*(l1^2+lc2^2);
