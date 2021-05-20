@@ -40,6 +40,26 @@ xs(1, :) = x0';
 ts(1) = t;
 disp("hi");
 
+for k = 1:total_k-1
+    t
+    % Determine control input.
+    % dV_hat: analytic Vdot based on model.
+    [u, slack, h, V] = controller(x);        
+%     [u, slack, h, V] = controller(s, u_prev); % optimizing the difference between the previous timestep.       
+    us(k, :) = u';
+    hs(k) = h;
+    Vs(k) = V;
+
+    % Run one time step propagation.
+    [ts_temp, xs_temp] = odeSolver(@(t, s) odeFun(t, s, u), [t t+dt], x);
+    x = xs_temp(end, :)';
+
+    xs(k+1, :) = x';
+    ts(k+1) = ts_temp(end);
+    u_prev = u;
+    t = t + dt;
+end
+
 %% inizializzo il grafico
  %plot gragico dinamico avanzato
  fig = figure();
