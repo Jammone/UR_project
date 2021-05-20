@@ -15,20 +15,17 @@ lc1 = 0.25;           % centro di massa giunto 1
 l2 = 0.5;
 lc2 = 0.25;
 I1 = 0.05;
-I2 = 0.005;
+I2 = 0.05;
 G = 9.81;            % constante di accelerazione gravitazionale
 f1 = 0.5;
 f2 = 0.5;
-F = diag([f1,f2]);   %friction matrix
-
 
 time = 500;
-dt = 0.005;
+dt = 0.01;
 q1_0 = pi;
 q2_0 = 0;
 dq1_0 = 0;
 dq2_0 = 0;
-
 
 
 %% model without uncertainties
@@ -38,6 +35,8 @@ a2 = m2*l1*lc2;
 a3 = I2+m2*lc2^2;
 a4 = G*(m1*lc1+m2*l1);
 a5 = G*m2*lc2;
+
+COEFF = [a1 a2 a3 a4 a5 f1 f2];
 
 M = [a1 + 2*a2*cos(q2), a3+a2*cos(q2);
          a3+a2*cos(q2),          a3];
@@ -50,6 +49,8 @@ e = [a4*sin(q1)+a5*sin(q1+q2);
             a5*sin(q1+q2)];
         
 n = c+e;
+
+F = diag([f1,f2]);   %friction matrix
 
 f =[dq1;
     dq2;
@@ -85,79 +86,76 @@ He = [a4*cos(q1e)+a5*cos(q1e+q2e),  a5*cos(q1e+q2e);
        
 A = [zeros(2), eye(2);
      -inv(Me)*He,   -inv(Me)*F];
-
- disp("A: ");
- disp(A);
  
 b = [0; 0; Me\n];
-
-disp("b: ");
-disp(b);
 
 [K,s,e] = lqrd(A,b,Q,R,0.005);
 
 K_p = -K(1:2);
 K_d = -K(3:4);
 
-
-
 %% exec
 x = zeros(4,time);
-
 dstate = zeros(4,time);
+u = zeros(2,time);
 dstate(:,1) =subs(dx,[q1,q2,dq1,dq2,u1],[q1_0,q2_0,dq1_0,dq2_0,0]);
 x(:,1) = [q1_0,q2_0,dq1_0,dq2_0]';
 
 %%%%%%%%%%%%%%%%%%%%
 fig = figure();
-    j1x = l1*sin(x(1,1));
-    j1y = -l1*cos(x(1,1));
-    j2x = j1x + l2*sin(x(2,1)+x(1,1));
-    j2y = j1y - l2*cos(x(2,1)+x(1,1));
+j1x = l1*sin(x(1,1));
+j1y = -l1*cos(x(1,1));
+j2x = j1x + l2*sin(x(2,1)+x(1,1));
+j2y = j1y - l2*cos(x(2,1)+x(1,1));
+
+hold on
+joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
+joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
+tip = plot(j2x,j2y,'*','MarkerFaceColor','red','Color','red');
+xlim([-1 1]);
+ylim([-1,1]); 
+hold off 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+use_cbf = 0; %flag to use CBF
+
+for i = 1:time
+    tau = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i)+ tau_eq;
+    if i > 100 && i <=120
+        disturb = 15;
+    else 
+        disturb = 0;
+    end
     
+    if use_cbf == 1
+        u(:,i) =  CBFcontroller(COEFF,x(:,i),Q1E,tau);
+    else
+        u(1,i) = tau;
+    end
+
+    dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1],[x(:,i)',u(1,i)+disturb]);
+    x(:,i+1) = x(:,i) + dt*dstate(:,i);
+    %disp("x(:,i+1) = "+x(:,i)+" + "+dt+"*"+dstate(:,i)+" :");  
+    %disp(x(:,i+1));
+    %t(i+1) = i*dt;
+ 
+    figure(fig);
+    delete(joint1);
+    delete(joint2);
+    delete(tip);
+    j1x = l1*sin(x(1,i));
+    j1y = -l1*cos(x(1,i));
+    j2x = j1x + l2*sin(x(2,i)+x(1,i));
+    j2y = j1y - l2*cos(x(2,i)+x(1,i));
+
     hold on
     joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
     joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
     tip = plot(j2x,j2y,'*','MarkerFaceColor','red','Color','red');
     xlim([-1 1]);
-    ylim([-1,1]); 
-    hold off 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    disturb = 0
-
-for i = 1:time
-    tau = 0;
-    tau = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i)+ tau_eq;
-    if i <3
-        disturb = 10;
-    else 
-        disturb = 0;
-    end
-     
-    u =  CBFcontroller(f,g,x(:,i),tau)+ [disturb;0];
-   
-    dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1],[x(:,i)',u(1)]);
-    x(:,i+1) = x(:,i) + dt*dstate(:,i);
-    %disp("x(:,i+1) = "+x(:,i)+" + "+dt+"*"+dstate(:,i)+" :");  
-    %disp(x(:,i+1));
-    t(i+1) = i*dt;
-    figure(fig);
-    delete(joint1);
-        delete(joint2);
-        delete(tip);
-        j1x = l1*sin(x(1,i));
-        j1y = -l1*cos(x(1,i));
-        j2x = j1x + l2*sin(x(2,i)+x(1,i));
-        j2y = j1y - l2*cos(x(2,i)+x(1,i));
-
-        hold on
-        joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
-        joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
-        tip = plot(j2x,j2y,'*','MarkerFaceColor','red','Color','red');
-        xlim([-1 1]);
-        ylim([-1,1]);
-        hold off
-        drawnow();
+    ylim([-1,1]);
+    hold off
+    drawnow();
 end
 
 close(fig);
@@ -165,84 +163,81 @@ close(fig);
 %% plot
 %PenduPlot(x,time,l1,l2);
 
+% show the state of the robot
 
+N = (1 : time) * dt;
 
-function u = CBFcontroller(f,g,x, u_des)
-% syms q1 q2 dq1 dq2 real
-% f_attuale = vpa(subs(f,[q1,q2,dq1,dq2],x'));
-% g_attuale = vpa(subs(g,[q1,q2,dq1,dq2],x'));
-m1 = 20;              % giunto 1 mass
-m2 = 20;              % giunto 2 mass
-l1 = 0.5;             % lunghezza primo giunto
-lc1 = 0.25;           % centro di massa giunto 1
-l2 = 0.5;
-lc2 = 0.25;
-I1 = 0.05;
-I2 = 0.05;
-G = 9.81;            % constante di accelerazione gravitazionale
-f1 = 0.5;
-f2 = 0.5;
+figure(1)
+plot(N,x(1,1:time),N,x(2,1:time));
+xlabel('time');
+ylabel('q')
+legend('q1','q2');
+title('q angle')
 
-d1= l1-lc1;
-d2 =l2-lc2;
+figure(2)
+plot(N,x(3,1:time),N,x(4,1:time));
+xlabel('time');
+ylabel('dq');
+legend('dq1','dq2');
+title('dq velocity');
 
+figure(3)
+plot(N,u(1:time));
+xlabel('time');
+ylabel('tau1');
+title('input torque');
 
-M = [(l1^2 + 2*cos(x(2))*l1*lc2 + lc2^2)*m2 + m1*lc1^2 + I1 + I2, lc2*(lc2 + l1*cos(x(2)))*m2 + I2;
-     (lc2^2 + l1*cos(x(2))*lc2)*m2 + I2,  m2*lc2^2 + I2];
- 
-c = [x(4)*l1*m2*sin(x(2))*(x(3) + x(4))*(d2 - l2) + x(3)*x(4)*l1*m2*sin(x(2))*(d2 - l2);
-    -x(3)^2*l1*m2*sin(x(2))*(d2 - l2)];
+function u = CBFcontroller(coeff,x,q1e,u_des)
 
-e = [ G*(l1*m2*cos(x(1)) + lc1*m1*cos(x(1)) + lc2*m2*cos(x(1) + x(2)));
-    G*lc2*m2*cos(x(1) + x(2))];
+a1 = coeff(1);
+a2 = coeff(2);
+a3 = coeff(3);
+a4 = coeff(4);
+a5 = coeff(5);
+f1 = coeff(6);
+f2 = coeff(7);
+
+q1  = x(1);
+q2  = x(2);
+dq1 = x(3);
+dq2 = x(4);
+
+M = [a1 + 2*a2*cos(q2), a3+a2*cos(q2);
+         a3+a2*cos(q2),          a3];
+
+c = [a2*sin(q2)*dq2*(dq2+2*dq1);
+         a2*sin(q2)*dq1^2];
+
+e = [a4*sin(q1)+a5*sin(q1+q2);
+            a5*sin(q1+q2)];
+        
 n = c+e;
+
 F = diag([f1,f2]);   %friction matrix
 
-f_attuale =[x(3);
-    x(4);
-    -inv(M)*(n+F*[x(3);x(4)])
+f = [dq1;
+    dq2;
+    -inv(M)*(n+F*[dq1;dq2])
     ];
 
-g_attuale =[0,0;
+g= [0,0;
     0,0;
     inv(M)];
 
-
-disp("f_attuale: ");
-disp(f_attuale);
-disp("g_attuale: ");
-disp(g_attuale);
-
 %cbf
-Q1E = pi;
+q2e = pi - q1e;
 
-q1e = pi;
-q2e = pi - Q1E;
-
-Q2E_MAX = pi/12;
-c = 0.1;
-alpha = 1;
+Q2E_MAX = pi/18;
+c = 0.5;
+alpha = 0.1;
 cbf = 0.5*(Q2E_MAX^2-(x(2)-q2e)^2-c*x(4)^2);
 grad = [q1e - x(1), 0, -c*x(3), 0];
-disp("CBF: " );
-disp(cbf);
-
-Aeq = [];
-beq = [];
 
 H = eye(2);
-f = -[u_des; 0];
-A = -grad*g_attuale;
-disp("grad ");
-disp(grad);
-disp("g_attuale " );
-disp(g_attuale);
-
-disp("A: " );
-disp(A);
-b = grad*f_attuale+alpha*cbf;
-disp(b)
+f_qp = -[u_des; 0];
+A = -grad*g;
+b = grad*f+alpha*cbf;
 options = optimoptions('quadprog','Algorithm','active-set');
 
-u= quadprog(H,f,A,b,Aeq,beq,[],[],[u_des,0]',options);
+u= quadprog(H,f_qp,A,b,[],[],[],[],[u_des,0]',options);
 end
