@@ -8,8 +8,8 @@ close;
 %% param setting
 syms q1 q2 dq1 dq2 ddq1 ddq2 u1 real
 
-m1 = 20;              % giunto 1 mass
-m2 = 20;              % giunto 2 mass
+m1 = 2;              % giunto 1 mass
+m2 = 2;              % giunto 2 mass
 l1 = 0.5;             % lunghezza primo giunto
 lc1 = 0.25;           % centro di massa giunto 1
 l2 = 0.5;
@@ -117,11 +117,12 @@ ylim([-1,1]);
 hold off 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-use_cbf = 0; %flag to use CBF
+use_cbf = 1;     %flag to use CBF
+use_disturb = 1; %flag to introduce disturbance
 
 for i = 1:time
     tau = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i)+ tau_eq;
-    if i > 100 && i <=120
+    if use_disturb == 1 && i > 100 && i <=120
         disturb = 15;
     else 
         disturb = 0;
@@ -182,7 +183,7 @@ legend('dq1','dq2');
 title('dq velocity');
 
 figure(3)
-plot(N,u(1:time));
+plot(N,u(1,1:time));
 xlabel('time');
 ylabel('tau1');
 title('input torque');
