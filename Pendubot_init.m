@@ -8,8 +8,8 @@ close;
 %% param setting
 syms q1 q2 dq1 dq2 ddq1 ddq2 u1 real
 
-m1 = 2;              % giunto 1 mass
-m2 = 2;              % giunto 2 mass
+m1 = 20;              % giunto 1 mass
+m2 = 20;              % giunto 2 mass
 l1 = 0.5;             % lunghezza primo giunto
 lc1 = 0.25;           % centro di massa giunto 1
 l2 = 0.5;
@@ -22,8 +22,8 @@ f2 = 0.5;
 
 time = 500;
 dt = 0.01;
-q1_0 = pi;
-q2_0 = 0;
+q1_0 = pi-pi/18;
+q2_0 = pi/18;
 dq1_0 = 0;
 dq2_0 = 0;
 
@@ -76,7 +76,7 @@ n = [1 0]';
 Q = diag([10 10 1 1]);
 R = 1;
 
-tau_eq = [a4*sin(q1e)+a5*sin(q1e+q2e)];
+tau_eq = a4*sin(q1e)+a5*sin(q1e+q2e);
 
 Me = [a1 + 2*a2*cos(q2e), a3+a2*cos(q2e);
          a3+a2*cos(q2e),          a3];
@@ -122,8 +122,8 @@ use_disturb = 1; %flag to introduce disturbance
 
 for i = 1:time
     tau = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i)+ tau_eq;
-    if use_disturb == 1 && i > 100 && i <=120
-        disturb = 15;
+    if use_disturb == 1 && i > 200 && i <=220
+        disturb = -20;
     else 
         disturb = 0;
     end
@@ -183,6 +183,18 @@ legend('dq1','dq2');
 title('dq velocity');
 
 figure(3)
+plot(x(1,1:time),x(3,1:time));
+xlabel('q1');
+ylabel('dq1')
+title('q1 and dq1')
+
+figure(4)
+plot(x(2,1:time),x(4,1:time));
+xlabel('q2');
+ylabel('dq2')
+title('q2 and dq2')
+
+figure(5)
 plot(N,u(1,1:time));
 xlabel('time');
 ylabel('tau1');
@@ -221,7 +233,7 @@ f = [dq1;
     -inv(M)*(n+F*[dq1;dq2])
     ];
 
-g= [0,0;
+g = [0,0;
     0,0;
     inv(M)];
 
@@ -229,16 +241,18 @@ g= [0,0;
 q2e = pi - q1e;
 
 Q2E_MAX = pi/18;
-c = 0.5;
+c = 1;
 alpha = 0.1;
-cbf = 0.5*(Q2E_MAX^2-(x(2)-q2e)^2-c*x(4)^2);
-grad = [q1e - x(1), 0, -c*x(3), 0];
+cbf = 0.5*(Q2E_MAX^2-(q2-q2e)^2-c*dq2^2);
+grad = [0, q2e - q2, 0, -c*dq2];
+% cbf = 0.5*(Q2E_MAX^2-(q2+q1-q1e-q2e)^2-c*(dq1^2+dq2^2));
+% grad = [q1e - q2 - q1 + q2e, q1e - q2 - q1 + q2e, -c*dq1, -c*dq2];
 
 H = eye(2);
 f_qp = -[u_des; 0];
 A = -grad*g;
 b = grad*f+alpha*cbf;
-options = optimoptions('quadprog','Algorithm','active-set');
+options = optimoptions('quadprog','Algorithm','active-set','Display','off');
 
-u= quadprog(H,f_qp,A,b,[],[],[],[],[u_des,0]',options);
+u = quadprog(H,f_qp,A,b,[],[],[],[],[u_des,0]',options);
 end
