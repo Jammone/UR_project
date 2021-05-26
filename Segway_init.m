@@ -56,7 +56,7 @@ dyn = f+g*u1;
 %% LQR
 
 % compute control u
-x_e=x0-xd;
+x_e=x0; %-xd;
 [K,s,e] = lqrd(A,B,Q,R,dt); %[K] = lqr(A,B,Q,R);
 u = -K*x_e;
 
@@ -80,34 +80,43 @@ dstate = zeros(4,time);
 dstate(:,1) = subs(dyn,[theta, d_x, d_theta,u1],[x0(2),x0(3),x0(4),u]);
 x(:,1) = x0;
 
-% %%%%%%%%%%%%%%%%%%%%
-% fig = figure();
-%     j1x = l1*sin(x(1,1));
-%     j1y = -l1*cos(x(1,1));
-%     j2x = j1x + l2*sin(x(2,1)+x(1,1));
-%     j2y = j1y - l2*cos(x(2,1)+x(1,1));
-%     
-%     hold on
-%     joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
-%     joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
-%     tip = plot(j2x,j2y,'*','MarkerFaceColor','red','Color','red');
-%     xlim([-1 1]);
-%     ylim([-1,1]); 
-%     hold off 
-%     
-%     disturb = 0
+%% %%%%%%%%%%%%%%%%%%%%
+fig = figure();
+axp = l*cos(x(2,1))+x(1,1);
+ayp = l*sin(x(2,1));
+
+hold on
+baseplot = plot(x(1,1),0,'gs','MarkerFaceColor','red','markers',22);
+axeplot = plot([x(1,1),axp],[0,ayp],'-','MarkerFaceColor','blue','Color','blue');
+xlim([-5 5]);
+ylim([-5,5]);  
+hold off 
 % %%%%%%%%%%%%%%%%%%%%
 
 for i = 1:time
-    u_ = -K*(x(:,i)-xd); %K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i)+ u;
+    %u_ = -K*(x(:,i)-xd);
+    u_ = -K*x(:,i);
     u =  CBFcontroller(f,g,x(:,i),u_);
 
     dstate(:,i) = subs(dyn,[theta, d_x, d_theta,u1],[x(2:4,i)',u]);
     x(:,i+1) = x(:,i) + dt*dstate(:,i);
     
-    disp("x: ");
-    disp(x(:,i))
+    figure(fig);
+    delete(baseplot);
+    delete(axeplot);
+   
+    axp = l*cos(sin(x(2,i)))+x(1,i);
+    ayp = l*sin(sin(x(2,i)));
+
+    hold on
+    baseplot = plot(x(1,i),0,'gs','MarkerFaceColor','red','markers',22);
+    axeplot = plot([x(1,i),axp],[0,ayp],'-','MarkerFaceColor','blue','Color','blue');
+    xlim([-5 5]);
+    ylim([-5,5]);
+    hold off
+    drawnow();     
 end
+close(fig);
 
 
 function u = CBFcontroller(f,g,x, u_des)
