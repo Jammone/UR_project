@@ -64,7 +64,7 @@ hold off
 for i = 1:time
     input(1,i) = K_p*(phi_des - state(2,i)) - K_d*state(4,i);
 %     disp(input(1,i));
-    dstate(:,i) = subs(d_state,[x,phi,dx,dphi,u],[state(:,i)', input(:,i)]);
+    dstate(:,i) = subs(d_state,[x,phi,dx,dphi,u],[state(:,i)', input(1,i)]);
     state(:,i+1) = state(:,i) + dt*dstate(:,i);
 
 %     disp("x(:,i+1) = "+state(:,i)+" + "+dt+"*"+dstate(:,i)+" :");
