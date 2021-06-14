@@ -20,7 +20,7 @@ G = 9.81;            % constante di accelerazione gravitazionale
 f1 = 0.5;
 f2 = 0.5;
 
-time = 500;
+time = 1000;
 dt = 0.01;
 q1_0 = pi;
 q2_0 = 0;
@@ -243,9 +243,9 @@ q2e = pi - q1e;
 
 n = [1 0]';
 
-Me = [a1 + 2*a2*cos(q2e), a3+a2*cos(q2e);
-         a3+a2*cos(q2e),          a3];
-     
+M = [a1 + 2*a2*cos(q2), a3+a2*cos(q2);
+         a3+a2*cos(q2),          a3];
+
 c = [a2*sin(q2)*dq2*(dq2+2*dq1);
          a2*sin(q2)*dq1^2];
 
@@ -256,10 +256,10 @@ F = diag([f1,f2]);   %friction matrix
 
 f = [dq1;
     dq2;
-    -inv(Me)*(c+e+F*[dq1;dq2])
+    -M\(c+e+F*[dq1;dq2])
     ];
 
-g = [0; 0; Me\n];
+g = [0; 0; M\n];
 
 %cbf
 c_param = 0.1;

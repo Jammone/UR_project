@@ -214,8 +214,8 @@ theta = state(2);
 dx = state(3);
 dtheta = state(4);
 
-Me = [mc+mp,            mp*l*cos(thetae);
-     mp*l*cos(thetae),    mp*l^2]; 
+M = [mc+mp,            mp*l*cos(theta);
+     mp*l*cos(theta),    mp*l^2]; 
 
 c = [0 -mp*l*dtheta*sin(theta);
      0              0;];
@@ -226,12 +226,12 @@ n = [1 0]';
 
 f =[dx;
     dtheta;
-    -Me\(c*[dx;dtheta]+e)
+    -M\(c*[dx;dtheta]+e)
     ];
 
 g =[0;
     0;
-    Me\n];
+    M\n];
 
 %cbf
 c = 1;
