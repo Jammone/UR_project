@@ -10,7 +10,7 @@ close;
 use_cbf = true;
 use_lqr = false;
 disturbance = false;
-show_animation = false;
+show_animation = true;
 show_plots = true;
 
 %% param setting
@@ -284,18 +284,27 @@ g = [0; 0; M\n];
 
 c_param = 1;
 alpha = 20;
-cbf = 0.5*(Q2_MAX^2-(q2-Q2E)^2-c_param*dq2^2);
-grad = [0, Q2E - q2, 0, -c_param*dq2];
+cbf = pi- q1-q2- pi/12;
+grad = [-1, -1, 0, 0];
  
+del =pi - pi/10;
+cbf = del^2 +q1^2+ 2*q1*q2 +q2^2 - 2*del*(q1+q2);
+
+grad =[2+2*q2-2*del*q2,2+2*q1-2*del*q1,0 ,0 ];
+
+
 H = 1;
 f_qp = -u_des;
 
 A = -grad*g;
 b = grad*f+alpha*cbf;
-% 
-% disp("A:"); disp(A);
-% disp("b:"); disp(b);
+
+disp("A:"); disp(A);
+disp("b:"); disp(b);
 options = optimset('display','off');
 h = cbf;
-u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
+u = quadprog(H,f_qp,A,b,[],[],[],[],[],options)
+if isempty(u)
+    u = 0;
+end
 end
