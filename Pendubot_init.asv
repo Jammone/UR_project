@@ -10,7 +10,7 @@ close;
 use_cbf = true;
 use_lqr = false;
 disturbance = false;
-show_animation = false;
+show_animation = true;
 show_plots = true;
 
 %% param setting
@@ -140,21 +140,19 @@ if(show_animation == 1)
 end
 
 for i = 1:time
-    
-    Q_DES(2) = Q2E + (pi/144)*sin(i*pi/250);
-
+  
     tau(i) = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq;
 
     if use_cbf == 1
         [h(i), u(1,i)] =  CBFcontroller(x(:,i),tau(i));
-%         mpc_x = [x(:,i)];
-%         mpc_tau = [];
-%         for idx = 1:20
-%             mpc_tau = [mpc_tau; K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq]; 
-%             mpc_dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1],[x(:,i)',u(1,i)]);
-%             mpc_x  =[mpc, mpc_x(:,i+idx) + dt*mpc_dstate(:,i)];
-%         end
-%     
+        mpc_x = [];
+        mpc_tau = [x(:,i)];
+        for idx = 1:20
+            mpc_tau = [mpc_tau, K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq]; 
+            mpc_dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1],[x(:,i)',u(1,i)]);
+            mpc_x  =[mpc, mpc_x(:,i+idx) + dt*mpc_dstate(:,i)];
+        end
+    
     else
         u(1,i) = tau(i);
     end
@@ -282,7 +280,7 @@ g = [0; 0; M\n];
 %cbf
 %disp(f);
 
-c_param = 1;
+c_param = 0.01;
 alpha = 20;
 cbf = 0.5*(Q2_MAX^2-(q2-Q2E)^2-c_param*dq2^2);
 grad = [0, Q2E - q2, 0, -c_param*dq2];
@@ -292,9 +290,9 @@ f_qp = -u_des;
 
 A = -grad*g;
 b = grad*f+alpha*cbf;
-% 
-% disp("A:"); disp(A);
-% disp("b:"); disp(b);
+
+disp("A:"); disp(A);
+disp("b:"); disp(b);
 options = optimset('display','off');
 h = cbf;
 u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
