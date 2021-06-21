@@ -8,14 +8,14 @@ close;
 %% configuration
 
 use_cbf = true;
-use_lqr = false;
+use_lqr = true;
 disturbance = false;
-show_animation = true;
+show_animation = false;
 show_plots = true;
 
 %% param setting
 syms q1 q2 dq1 dq2 ddq1 ddq2 u1 real
-global Q_DES  Q2_MAX
+global Q_DES Q1E Q2E Q1_MAX Q2_MAX
 global a1 a2 a3 a4 a5 f1 f2 
 
 m1 = 2;              % giunto 1 mass
@@ -32,11 +32,12 @@ f2 = 0.5;
 
 time = 1000;
 dt = 0.01;
-q1_0 = pi-0.05;
+q1_0 = pi;
 q2_0 = 0;
 dq1_0 = 0;
 dq2_0 = 0;
 
+Q1_MAX = pi/12;
 Q2_MAX = pi/12;
 
 %% model without uncertainties
@@ -73,29 +74,30 @@ g =[0,0;
 dx=f+g*[u1;0];
 %% LQR INIT
    
-    Q1E = pi;
+Q1E = pi;
 
-    Q2E = pi - Q1E;
+Q2E = pi - Q1E;
 
-    Q_DES = [Q1E; Q2E];
+Q_DES = [Q1E; Q2E];
 
-    n = [1 0]';
+n = [1 0]';
 
-    Q = diag([10 100 1 1]);
-    R = 1;
+Q = diag([10 100 1 1]);
+R = 1;
 
-    tau_eq = a4*sin(Q1E)+a5*sin(Q1E+Q2E);
+tau_eq = a4*sin(Q1E)+a5*sin(Q1E+Q2E);
 
-    Me = [a1 + 2*a2*cos(Q2E), a3+a2*cos(Q2E);
-             a3+a2*cos(Q2E),          a3];
+Me = [a1 + 2*a2*cos(Q2E), a3+a2*cos(Q2E);
+         a3+a2*cos(Q2E),          a3];
 
-    He = [a4*cos(Q1E)+a5*cos(Q1E+Q2E),  a5*cos(Q1E+Q2E);
-               a5*cos(Q1E+Q2E),         a5*cos(Q1E+Q2E)];
+He = [a4*cos(Q1E)+a5*cos(Q1E+Q2E),  a5*cos(Q1E+Q2E);
+           a5*cos(Q1E+Q2E),         a5*cos(Q1E+Q2E)];
 
-    A = [zeros(2), eye(2);
-         -inv(Me)*He,   -inv(Me)*F];
+A = [zeros(2), eye(2);
+     -inv(Me)*He,   -inv(Me)*F];
 
-    b = [0; 0; Me\n];
+b = [0; 0; Me\n];
+
 if(use_lqr)
     
     [K,s,e] = lqr(A,b,Q,R);
@@ -141,7 +143,7 @@ end
 
 for i = 1:time
     
-    Q_DES(2) = Q2E + (pi/144)*sin(i*pi/250);
+    Q_DES(2) = Q2E + (pi/144)*sin(i*pi/125);
 
     tau(i) = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq;
 
@@ -203,8 +205,8 @@ if show_plots
 
     subplot(2,2,2);
     plot(N,x(1,1:time),N,q_des(1,1:time))
-    yline(Q2_MAX);
-    yline(-Q2_MAX);
+    yline(pi+Q1_MAX);
+    yline(pi-Q1_MAX);
     xlabel('s')
     ylabel('q1')
     legend('q1','q1_des');
@@ -218,11 +220,13 @@ if show_plots
     title('dq velocity');
 
     subplot(2,2,4)
-    plot(N,u(1,1:time));
-    xlabel('t');
-    ylabel('dq1')
-    title('q1 and dq1')
-
+    plot(x(2,1:time),x(4,1:time));
+    xline(Q2_MAX);
+    xline(-Q2_MAX);
+    xlabel('q2')
+    ylabel('dq2')
+    title('q2 and dq2')
+    grid on
 
     if(use_cbf == 1)
         figure;
@@ -238,6 +242,7 @@ if show_plots
         xlabel('time')
         ylabel('h')
         title('Control Barrier function')
+        grid on
     else
         figure(5)
         plot(N,u(1,:))
@@ -248,16 +253,13 @@ if show_plots
 end
 %% CBF
 function [h, u] = CBFcontroller(x,u_des)
-global a1 a2 a3 a4 a5 f1 f2 Q_DES Q2_MAX
+global a1 a2 a3 a4 a5 f1 f2 Q1E Q2E Q1_MAX Q2_MAX
 syms q1 q2 dq1 dq2;
 
 q1  = x(1);
 q2  = x(2);
 dq1 = x(3);
 dq2 = x(4);
-
-Q1E = Q_DES(1);
-Q2E = Q_DES(2);
 
 n = [1 0]';
 
@@ -282,16 +284,19 @@ g = [0; 0; M\n];
 %cbf
 %disp(f);
 
-c_param = 1;
+c_param = 0.01;
 alpha = 20;
-cbf = pi- q1-q2- pi/12;
-grad = [-1, -1, 0, 0];
- 
-del =pi - pi/10;
-cbf = del^2 +q1^2+ 2*q1*q2 +q2^2 - 2*del*(q1+q2);
 
-grad =[2+2*q2-2*del*q2,2+2*q1-2*del*q1,0 ,0 ];
+% del =pi - pi/10;
+% cbf = del^2 +q1^2+ 2*q1*q2 +q2^2 - 2*del*(q1+q2);
+% 
+% grad =[2+2*q2-2*del*q2,2+2*q1-2*del*q1,0 ,0 ];
 
+% cbf1 = 0.5*(Q1_MAX^2-(q1-Q1E)^2-c_param*dq1^2)
+% grad1 = [Q1E-q1, 0, -c_param*dq1, 0]
+
+cbf = 0.5*(Q2_MAX^2-(q2-Q2E)^2-c_param*dq2^2);
+grad = [0, Q2E - q2, 0, -c_param*dq2];
 
 H = 1;
 f_qp = -u_des;
@@ -299,12 +304,12 @@ f_qp = -u_des;
 A = -grad*g;
 b = grad*f+alpha*cbf;
 
-disp("A:"); disp(A);
-disp("b:"); disp(b);
+% disp("A:"); disp(A);
+% disp("b:"); disp(b);
 options = optimset('display','off');
 h = cbf;
-u = quadprog(H,f_qp,A,b,[],[],[],[],[],options)
-if isempty(u)
-    u = 0;
-end
+u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
+% if isempty(u)
+%     u = 0;
+% end
 end
