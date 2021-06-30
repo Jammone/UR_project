@@ -9,12 +9,12 @@ close;
 
 use_cbf = true;
 use_lqr = true;
-disturbance = false;
+disturbance = true;
 show_animation = false;
 show_plots = true;
 
 %% param setting
-syms q1 q2 dq1 dq2 ddq1 ddq2 u1 real
+syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m2_unc real
 global Q_DES Q1E Q2E Q1_MAX Q2_MAX
 global a1 a2 a3 a4 a5 f1 f2 
 
@@ -31,14 +31,14 @@ f1 = 0.5;
 f2 = 0.5;
 
 time = 1000;
-dt = 0.01;
-q1_0 = pi;
-q2_0 = 0;
+dt = 0.005;
+q1_0 = pi+pi/12;
+q2_0 = -pi/12;
 dq1_0 = 0;
 dq2_0 = 0;
 
-Q1_MAX = pi/12;
-Q2_MAX = pi/12;
+Q1_MAX = pi/18;
+Q2_MAX = pi/18;
 
 %% model without uncertainties
 a1 = I1+m1*lc1^2+I2+m2*(l1^2+lc2^2);
@@ -62,19 +62,9 @@ n = c+e;
 
 F = diag([f1,f2]);   %friction matrix
 
-f =[dq1;
-    dq2;
-    -inv(M)*(n+F*[dq1;dq2])
-    ];
-
-g =[0,0;
-    0,0;
-    inv(M)];
-
-dx=f+g*[u1;0];
 %% LQR INIT
    
-Q1E = pi;
+Q1E = pi-pi/18;
 
 Q2E = pi - Q1E;
 
@@ -98,7 +88,7 @@ A = [zeros(2), eye(2);
 
 b = [0; 0; Me\n];
 
-if(use_lqr)
+if use_lqr == 1
     
     [K,s,e] = lqr(A,b,Q,R);
 
@@ -109,8 +99,41 @@ else
     K_d = zeros(1,2);
 end
 
+%% model with mass uncertainties
+
+a1_unc = I1+m1*lc1^2+I2+m2_unc*(l1^2+lc2^2);
+a2_unc = m2_unc*l1*lc2;
+a3_unc = I2+m2_unc*lc2^2;
+a4_unc = G*(m1*lc1+m2_unc*l1);
+a5_unc = G*m2_unc*lc2;
+
+M_unc = [a1_unc + 2*a2_unc*cos(q2), a3_unc+a2_unc*cos(q2);
+         a3_unc+a2_unc*cos(q2),          a3_unc];
+ 
+
+c_unc = [a2_unc*sin(q2)*dq2*(dq2+2*dq1);
+         a2_unc*sin(q2)*dq1^2];
+
+e_unc = [a4_unc*sin(q1)+a5_unc*sin(q1+q2);
+            a5_unc*sin(q1+q2)];
+        
+n_unc = c_unc+e_unc;
+
+
+f =[dq1;
+    dq2;
+    -inv(M_unc)*(n_unc+F*[dq1;dq2])
+    ];
+
+g =[0,0;
+    0,0;
+    inv(M_unc)];
+
+dx=f+g*[u1;0];
+
 %% exec
 
+m2_var = 2;
 
 x = zeros(4,time);
 dstate = zeros(4,time);
@@ -120,8 +143,7 @@ tau = zeros(1,time);            %LQR output
 
 h = zeros(1,time);
 q_des = zeros(2,time);
-q_des(1,:)=pi; 
-dstate(:,1) = subs(dx,[q1,q2,dq1,dq2,u1],[q1_0,q2_0,dq1_0,dq2_0,0]);
+dstate(:,1) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[q1_0,q2_0,dq1_0,dq2_0,0,m2_var]);
 x(:,1) = [q1_0,q2_0,dq1_0,dq2_0]';
 
 if(show_animation == 1)
@@ -143,7 +165,9 @@ end
 
 for i = 1:time
     
-    Q_DES(2) = Q2E + (pi/144)*sin(i*pi/125);
+%     Q_DES(2) = Q2E + (pi/144)*sin(i*pi/125);
+    
+    q_des(:,i) = Q_DES;
 
     tau(i) = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq;
 
@@ -160,8 +184,15 @@ for i = 1:time
     else
         u(1,i) = tau(i);
     end
+    
+    if disturbance == 1
+        a = 90;
+        b = 110;
+        r = (b-a).*rand() + a;
+        m2_var = 2*r/100;
+    end
 
-    dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1],[x(:,i)',u(1,i)]);
+    dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[x(:,i)',u(1,i),m2_var]);
     x(:,i+1) = x(:,i) + dt*dstate(:,i);
     %disp("x(:,i+1) = "+x(:,i)+" + "+dt+"*"+dstate(:,i)+" :");  
     %disp(x(:,i+1));
@@ -196,8 +227,8 @@ if show_plots
     figure();
     subplot(2,2,1);
     plot(N,x(2,1:time),N,q_des(2,1:time))
-    yline(Q2_MAX);
-    yline(-Q2_MAX);
+%     yline(Q2_MAX);
+%     yline(-Q2_MAX);
     xlabel('s')
     ylabel('q2')
     legend('q2','q2_des');
@@ -205,8 +236,8 @@ if show_plots
 
     subplot(2,2,2);
     plot(N,x(1,1:time),N,q_des(1,1:time))
-    yline(pi+Q1_MAX);
-    yline(pi-Q1_MAX);
+%     yline(pi+Q1_MAX);
+%     yline(pi-Q1_MAX);
     xlabel('s')
     ylabel('q1')
     legend('q1','q1_des');
@@ -214,18 +245,22 @@ if show_plots
 
     subplot(2,2,3)
     plot(N,x(3,1:time),N,x(4,1:time));
+    yline(1);
+    yline(-1);
     xlabel('time');
     ylabel('dq');
     legend('dq1','dq2');
     title('dq velocity');
+    ylim([-1.5 1.5])
 
     subplot(2,2,4)
-    plot(x(2,1:time),x(4,1:time));
-    xline(Q2_MAX);
-    xline(-Q2_MAX);
+    plot(x(2,1:time),x(4,1:time))
+    yline(1);
+    yline(-1);
     xlabel('q2')
     ylabel('dq2')
     title('q2 and dq2')
+    ylim([-1.5 1.5])
     grid on
 
     if(use_cbf == 1)
@@ -284,7 +319,7 @@ g = [0; 0; M\n];
 %cbf
 %disp(f);
 
-c_param = 0.01;
+c_param = 1;
 alpha = 20;
 
 % del =pi - pi/10;
@@ -295,8 +330,11 @@ alpha = 20;
 % cbf1 = 0.5*(Q1_MAX^2-(q1-Q1E)^2-c_param*dq1^2)
 % grad1 = [Q1E-q1, 0, -c_param*dq1, 0]
 
-cbf = 0.5*(Q2_MAX^2-(q2-Q2E)^2-c_param*dq2^2);
-grad = [0, Q2E - q2, 0, -c_param*dq2];
+% cbf = 0.5*(Q2_MAX^2-(q2-Q2E)^2-c_param*dq2^2);
+% grad = [0, Q2E - q2, 0, -c_param*dq2];
+
+cbf = 0.5*(1-c_param*dq2^2);
+grad = [0,0,0,-c_param*dq2];
 
 H = 1;
 f_qp = -u_des;
