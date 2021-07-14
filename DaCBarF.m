@@ -78,7 +78,7 @@ K_d_0 = -K(3:4);
 T = 10;
 time = 1000;
 
-D = zeros(4,T*time); % Initialize data set
+h_dot_est = zeros(1,T);
 
 q1_0 = pi+pi/12;
 q2_0 = -pi/12;
@@ -88,24 +88,25 @@ dq2_0 = 0;
 x_0 = [q1_0, q2_0, dq1_0, dq2_0];
 
 cbf = 0.5*(1-c_param*dq2^2);
+h_dot_est_0 = 0.5*(1-2*c_param*dq2);
 
-grad = [0,0,0,-c_param*dq2]; %???
-h_0 = grad*f + grad*g;
-
-w = ones(1,T);
+% w = ones(1,T); for now w = 1 for all j
 
 for i = 1:T
     % Sample initial conditions
-    % D_curr = experiment % Execute experiment 
-    % TODO: Implementation of simulator
+    if i == 0
+        D_curr = experiment(x_0,h_dot_est_0,i); % Execute experiment
+    else
+        D_curr = experiment(x_0,h_dot_est(i),i);
+    end
     D(:,time*(i-1)+1:time*i) = D_curr; %Aggregate dataset
     % Fit estimators
-    % Update derivative estimators
-    % Update controller
+    % h_dot_est(i) = h_dot_est_0 + a*u + b % Update derivative estimators
+    % Update controller will be directly in the experiment
 end
 
 
-function x = experiment(x_0,k)
+function D = experiment(x_0,h_dot_est,num_exp)
 
     q1_0  = x_0(1);
     q2_0  = x_0(2);
@@ -119,8 +120,10 @@ function x = experiment(x_0,k)
 
     u = zeros(2,time);              %the final input
     tau = zeros(1,time);            %LQR output
-
+    
+    D = zeros(5,time);              %experiment output
     h = zeros(1,time);
+    h_dot = zeros(1,time);
     q_des = zeros(2,time);
     dstate(:,1) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[q1_0,q2_0,dq1_0,dq2_0,0,m2_var]);
     x(:,1) = [q1_0,q2_0,dq1_0,dq2_0]';
@@ -130,8 +133,13 @@ function x = experiment(x_0,k)
 
         tau(i) = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq;
         
-        [h(i), u(1,i)] =  LCBFcontroller(x(:,i),tau(i));
+        if num_exp == 0 %first experiment executed with k0, CBF-QP controller
+            [h(i), h_dot(i), u(1,i)] = CBFcontroller(x(:,i),tau(i));
+        else
+            [h(i), h_dot(i), u(1,i)] =  LCBFcontroller(x(:,i),tau(i),h_dot_est);
+        end
         
+        % Mass pertubation
         a = 90;
         b = 110;
         r = (b-a).*rand() + a;
@@ -140,11 +148,14 @@ function x = experiment(x_0,k)
         dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[x(:,i)',u(1,i),m2_var]);
         x(:,i+1) = x(:,i) + dt*dstate(:,i);
         
+        D(1:4,i) = x(:,i);
+        D(5,i) = h_dot(i);
+        
     end
 end
 
-function [h,u] = LCBFController(x,u_des)
-    global a1 a2 a3 a4 a5 f1 f2 Q1E Q2E Q1_MAX Q2_MAX
+function [h, h_dot, u] = CBFcontroller(x,u_des)
+    global a1 a2 a3 a4 a5 f1 f2
     syms q1 q2 dq1 dq2;
 
     q1  = x(1);
@@ -152,33 +163,66 @@ function [h,u] = LCBFController(x,u_des)
     dq1 = x(3);
     dq2 = x(4);
 
-%     n = [1 0]';
-% 
-%     M = [a1 + 2*a2*cos(q2), a3+a2*cos(q2);
-%              a3+a2*cos(q2),          a3];
-% 
-%     c = [a2*sin(q2)*dq2*(dq2+2*dq1);
-%              a2*sin(q2)*dq1^2];
-% 
-%     e = [a4*sin(q1)+a5*sin(q1+q2);
-%                 a5*sin(q1+q2)];
-% 
-%     F = diag([f1,f2]);   %friction matrix
-% 
-%     f = [dq1;
-%         dq2;
-%         -M\(c+e+F*[dq1;dq2])
-%         ];
-% 
-%     g = [0; 0; M\n];
+    n = [1 0]';
 
-% Constraint depends on S_dot (derivative estimator)
-% S_dot = h_dot + a^Tu + b
+    M = [a1 + 2*a2*cos(q2), a3+a2*cos(q2);
+             a3+a2*cos(q2),          a3];
+
+    c = [a2*sin(q2)*dq2*(dq2+2*dq1);
+             a2*sin(q2)*dq1^2];
+
+    e = [a4*sin(q1)+a5*sin(q1+q2);
+                a5*sin(q1+q2)];
+
+    F = diag([f1,f2]);   %friction matrix
+
+    f = [dq1;
+        dq2;
+        -M\(c+e+F*[dq1;dq2])
+        ];
+
+    g = [0; 0; M\n];
+
+    %cbf
+    %disp(f);
+
+    c_param = 1;
+    alpha = 20;
+
+    cbf = 0.5*(1-c_param*dq2^2);
+    cbf_dot = 0.5*(1-2*c_param*dq2);
+    grad = [0,0,0,-c_param*dq2];
+
+    H = 1;
+    f_qp = -u_des;
+
+    A = -grad*g;
+    b = grad*f+alpha*cbf;
+
+    % disp("A:"); disp(A);
+    % disp("b:"); disp(b);
+    options = optimset('display','off');
+    h = cbf;
+    h_dot = cbf_dot;
+    u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
+end
+
+function [h,h_dot,u] = LCBFcontroller(x,u_des,h_dot_est)
+    syms q1 q2 dq1 dq2;
+
+    q1  = x(1);
+    q2  = x(2);
+    dq1 = x(3);
+    dq2 = x(4);
+
+    % Constraint depends on S_dot (derivative estimator)
+    % S_dot = h_dot + a^Tu + b
 
     c_param = 1;
     alpha = 20;
     
     cbf = 0.5*(1-c_param*dq2^2);
+    cbf_dot = 0.5*(1-2*c_param*dq2);
     grad = [0,0,0,-c_param*dq2];
 
     H = 1;
@@ -191,6 +235,7 @@ function [h,u] = LCBFController(x,u_des)
     % disp("b:"); disp(b);
     options = optimset('display','off');
     h = cbf;
+    h_dot = cbf_dot;
     u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
 end
 
