@@ -10,7 +10,7 @@ close;
 use_cbf = true;
 use_lqr = true;
 disturbance = true;
-show_animation = false;
+show_animation = true;
 show_plots = false;
 
 %% param setting
@@ -286,10 +286,6 @@ if show_plots
         title('LQR input')
     end
 end
-
-%VideoSaver(x,time,l1,l2);
-%VideoSaver genera un file .avi che deve essere accelarato 5x imo oppure
-%ridurre il framerate
 
 
 %% CBF
