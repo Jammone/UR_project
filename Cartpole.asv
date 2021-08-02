@@ -24,19 +24,20 @@ G = 9.81;            % constante di accelerazione gravitazionale
 time = 1200;
 dt = 0.01;
 x_0 = 4.5;
-theta_0 = pi;
+theta_0 = pi+pi/18;
 dx_0 = 0;
 dtheta_0 = 0;
 
-THETAE_MAX = pi/12;
+THETAE_MAX = pi/18;
+
 
 X_EQ = 0;
-THETA_EQ = pi;
+THETA_EQ = pi-pi/18;
 
 xe = X_EQ;
-THETA_LQR = pi-pi/18;
+THETA = THETA_EQ;
 
-Q_DES = [X_EQ; THETA_LQR];
+Q_DES = [X_EQ; THETA_EQ];
 
 %% model without uncertainties
 
@@ -68,10 +69,10 @@ n = [1 0]';
 Q = diag([1 1 10 100]);
 R = 1;
 
-tau_eq = mp*G*l*sin(THETA_LQR);
+tau_eq = mp*G*l*sin(thetae);
 
-Me = [mc+mp,            mp*l*cos(THETA_LQR);
-     mp*l*cos(THETA_LQR),    mp*l^2];
+Me = [mc+mp,            mp*l*cos(thetae);
+     mp*l*cos(thetae),    mp*l^2];
 
 He = [0 0;
       0 mp*G*l;];
@@ -116,7 +117,7 @@ for i = 1:time
     tau(i) = -K*(state(:,i)-[Q_DES; 0; 0]) + tau_eq;
     
     if use_cbf == 1
-        [h(i), u(i)] =  CBFcontroller(state(:,i),THETAE_MAX,THETA_LQR,tau(i));
+        [h(i), u(i)] =  CBFcontroller(state(:,i),THETAE_MAX,thetae,tau(i));
 %         disp(tau-u(1,i));
     else
         u(i) = tau(i);
