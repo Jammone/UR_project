@@ -18,23 +18,23 @@ syms x theta dx dtheta ddx ddtheta u1 real
 
 mc = 5;              % giunto 1 mass
 mp = 1;              % giunto 2 mass
-l = 2;             % lunghezza primo giunto
+l = 2;             % lunghezza  giunto
 G = 9.81;            % constante di accelerazione gravitazionale
 
 time = 1200;
 dt = 0.01;
 x_0 = 4.5;
-theta_0 = pi;
-dx_0 = 0;
-dtheta_0 = 0;
+theta_0 = pi-pi/12;
+dx_0 = 0%3;
+dtheta_0 =0 %-1;
 
-THETAE_MAX = pi/12;
+THETAE_MAX = pi/4;%pi/12;
 
 X_EQ = 0;
-THETA_EQ = pi;
+THETA_EQ = pi+pi/12;
 
 xe = X_EQ;
-THETA_LQR = pi-pi/18;
+THETA_LQR = pi;
 
 Q_DES = [X_EQ; THETA_LQR];
 
@@ -93,7 +93,7 @@ h = zeros(1,time);
 q_des = zeros(2,time);
 state(:,1) = [x_0,theta_0,dx_0,dtheta_0]';
 dstate(:,1) =subs(d_state,[x,theta,dx,dtheta,u1],[state(:,1)',0]);
-disturb = zeros(1,time);
+
 if(show_animation == 1)
     fig = figure();
     jx = l*sin(state(2,1));
@@ -187,15 +187,18 @@ if show_plots
 
     %subplot(2,2,4)
     figure
+    hold on
     plot(state(2,1:time),state(4,1:time))
-    yline(1);
-    yline(-1);
+    ezplot(@(X,Y)(0.5*(THETAE_MAX^2-(X-THETA_LQR)^2-Y^2)))
+    hold off
     xlabel('theta')
     ylabel('dtheta')
-    xline(THETA_EQ+ THETAE_MAX,'--');
-    xline(THETA_EQ-THETAE_MAX,'--');
+   % xline(THETA_EQ+ THETAE_MAX,'--');
+    %xline(THETA_EQ-THETAE_MAX,'--');
     title('theta and dtheta')
-    %ylim([-1.5 1.5])
+    ylim([-1.2 1.2])
+    xlim([2.5 3.7])
+   
     grid on
 
     if(use_cbf == 1)
