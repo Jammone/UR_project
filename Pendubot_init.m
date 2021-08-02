@@ -3,7 +3,7 @@
 
 clc;
 clear all;
-close;
+close all;
 
 %% configuration
 
@@ -11,7 +11,7 @@ use_cbf = true;
 use_lqr = true;
 disturbance = true;
 show_animation = false;
-show_plots = false;
+show_plots = true;
 
 %% param setting
 syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m2_unc real
@@ -173,14 +173,6 @@ for i = 1:time
 
     if use_cbf == 1
         [h(i), u(1,i)] =  CBFcontroller(x(:,i),tau(i));
-%         mpc_x = [x(:,i)];
-%         mpc_tau = [];
-%         for idx = 1:20
-%             mpc_tau = [mpc_tau; K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq]; 
-%             mpc_dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1],[x(:,i)',u(1,i)]);
-%             mpc_x  =[mpc, mpc_x(:,i+idx) + dt*mpc_dstate(:,i)];
-%         end
-%     
     else
         u(1,i) = tau(i);
     end
@@ -194,10 +186,7 @@ for i = 1:time
 
     dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[x(:,i)',u(1,i),m2_var]);
     x(:,i+1) = x(:,i) + dt*dstate(:,i);
-    %disp("x(:,i+1) = "+x(:,i)+" + "+dt+"*"+dstate(:,i)+" :");  
-    %disp(x(:,i+1));
-    %t(i+1) = i*dt;
- 
+
     if show_animation == 1
         figure(fig);
         delete(joint1);
@@ -223,21 +212,23 @@ end
 % show the state of the robot
 if show_plots
     N = (1 : time) * dt;
-
     figure();
     subplot(2,2,1);
     plot(N,x(2,1:time),N,q_des(2,1:time))
-%     yline(Q2_MAX);
-%     yline(-Q2_MAX);
+     yline(Q2_MAX,'--');
+     yline(-Q2_MAX,'--');
     xlabel('s')
     ylabel('q2')
     legend('q2','q2_des');
     title('q2 angle')
+    ylim([-0.5 0.4])
+
 
     subplot(2,2,2);
     plot(N,x(1,1:time),N,q_des(1,1:time))
 %     yline(pi+Q1_MAX);
 %     yline(pi-Q1_MAX);
+    ylim([-3 3])
     xlabel('s')
     ylabel('q1')
     legend('q1','q1_des');
@@ -302,7 +293,7 @@ q2  = x(2);
 dq1 = x(3);
 dq2 = x(4);
 
-n = [1 0]';
+ni = [1 0]';
 
 M = [a1 + 2*a2*cos(q2), a3+a2*cos(q2);
          a3+a2*cos(q2),          a3];
@@ -320,7 +311,7 @@ f = [dq1;
     -M\(c+e+F*[dq1;dq2])
     ];
 
-g = [0; 0; M\n];
+g = [0; 0; M\ni];
 
 %cbf
 %disp(f);
