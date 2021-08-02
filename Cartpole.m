@@ -2,8 +2,8 @@
 % progetto di <studente 1>, <studente 2> e <studente 3>
 
 clc;
-clear all;
-close;
+clearvars -except  savedstate;
+close all;
 
 %% configuration
 
@@ -21,17 +21,17 @@ mp = 1;              % giunto 2 mass
 l = 2;             % lunghezza  giunto
 G = 9.81;            % constante di accelerazione gravitazionale
 
-time = 1200;
+time = 2000;
 dt = 0.01;
 x_0 = 4.5;
-theta_0 = pi-pi/12;
-dx_0 = 0%3;
-dtheta_0 =0 %-1;
+theta_0 = pi;
+dx_0 = -6;
+dtheta_0 =-0.25;
 
-THETAE_MAX = pi/4;%pi/12;
+THETAE_MAX = pi/12;
 
 X_EQ = 0;
-THETA_EQ = pi+pi/12;
+THETA_EQ = pi;
 
 xe = X_EQ;
 THETA_LQR = pi;
@@ -71,7 +71,7 @@ R = 1;
 tau_eq = mp*G*l*sin(THETA_LQR);
 
 Me = [mc+mp,            mp*l*cos(THETA_LQR);
-     mp*l*cos(THETA_LQR),    mp*l^2];
+     mp*l*cos(THETA_LQR),    0.5+mp*l^2];
 
 He = [0 0;
       0 mp*G*l;];
@@ -112,6 +112,7 @@ end
 %% Simulation loop
 for i = 1:time
     Q_DES(2) = THETA_EQ;
+    q_des(1,i) = Q_DES(1);
     q_des(2,i) = Q_DES(2);
     tau(i) = -K*(state(:,i)-[Q_DES; 0; 0]) + tau_eq;
     
@@ -160,7 +161,7 @@ if show_plots
     ylabel('theta')
     legend('theta','theta_des');
     title('theta angle')
-    ylim([-2.7 3.8])
+    %ylim([q_des(2,1)-2 q_des(2,1)+2])
 
 
     %subplot(2,2,2);
@@ -168,7 +169,7 @@ if show_plots
     plot(N,state(1,1:time),N,q_des(1,1:time))
 %     yline(pi+Q1_MAX);
 %     yline(pi-Q1_MAX);
-    ylim([-3 3])
+   % ylim([q_des(1,1)-2 q_des(1,1)-2+4])
     xlabel('time')
     ylabel('x')
     legend('x','x_des');
