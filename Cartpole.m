@@ -8,7 +8,7 @@ close all;
 %% configuration
 
 use_cbf = true;
-use_lqr = true;
+use_lqr = false;
 disturbance = true;
 show_animation = false;
 show_plots = true;
