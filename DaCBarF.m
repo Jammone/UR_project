@@ -7,7 +7,8 @@ close;
 
 global Q_DES Q1E Q2E a_est b_est
 global a1 a2 a3 a4 a5 f1 f2 K_p K_d tau_eq
-global m1 l1 lc1 l2 lc2 I1 I2 G F
+global l1 lc1 l2 lc2 I1 I2 G F
+global time show_animation show_plots h_prev
 
 m1 = 2;              % giunto 1 mass
 m2 = 2;              % giunto 2 mass
@@ -64,8 +65,11 @@ K_d = -K(3:4);
 
 %% Algorithm settings
 
-T = 10;
+T = 1;
 time = 1000;
+
+show_animation = false;
+show_plots = true;
 
 h_dot_est = zeros(1,T);
 a_est = 0;
@@ -84,6 +88,7 @@ x_0 = [q1_0, q2_0, dq1_0, dq2_0];
 
 for i = 1:T
     % Sample initial conditions
+    h_prev = 0;
     D_curr = experiment(x_0,i); % Execute experiment
     D(:,time*(i-1)+1:time*i) = D_curr; %Aggregate dataset
     % Fit estimators
@@ -93,22 +98,22 @@ for i = 1:T
     disp(i)
 end
 
-%% Aux functions
+% Aux functions
 
 function D = experiment(x_0,num_exp)
 
-    syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m2_unc real
-    global Q_DES m1 l1 lc1 lc2 I1 I2 G F K_p K_d tau_eq
+    syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m1_unc m2_unc real
+    global Q_DES l1 lc1 l2 lc2 I1 I2 G F K_p K_d tau_eq 
+    global time dt show_animation show_plots
 
-    time = 1000;
     dt = 0.005;
     
     % Actual model with mass uncertainties
     
-    a1_unc = I1+m1*lc1^2+I2+m2_unc*(l1^2+lc2^2);
+    a1_unc = I1+m1_unc*lc1^2+I2+m2_unc*(l1^2+lc2^2);
     a2_unc = m2_unc*l1*lc2;
     a3_unc = I2+m2_unc*lc2^2;
-    a4_unc = G*(m1*lc1+m2_unc*l1);
+    a4_unc = G*(m1_unc*lc1+m2_unc*l1);
     a5_unc = G*m2_unc*lc2;
 
     M_unc = [a1_unc + 2*a2_unc*cos(q2), a3_unc+a2_unc*cos(q2);
@@ -139,8 +144,9 @@ function D = experiment(x_0,num_exp)
     q2_0  = x_0(2);
     dq1_0 = x_0(3);
     dq2_0 = x_0(4);
-
-    m2_var = 2;
+    
+    m1_var = 1.7851;
+    m2_var = 1.9531;
 
     x = zeros(4,time);
     dstate = zeros(4,time);
@@ -148,41 +154,134 @@ function D = experiment(x_0,num_exp)
     u = zeros(2,time);              %the final input
     tau = zeros(1,time);            %LQR output
     
-    D = zeros(5,time);              %experiment output
+    D = zeros(6,time);              %experiment output
     h = zeros(1,time);
-    h_dot = zeros(1,time);
+    h_dot_diff = zeros(1,time);
+    h_dot_nom = zeros(1,time);
     q_des = zeros(2,time);
-    dstate(:,1) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[q1_0,q2_0,dq1_0,dq2_0,0,m2_var]);
+    dstate(:,1) = subs(dx,[q1,q2,dq1,dq2,u1,m1_unc,m2_unc],[q1_0,q2_0,dq1_0,dq2_0,0,m1_var,m2_var]);
     x(:,1) = [q1_0,q2_0,dq1_0,dq2_0]';
+    
+    if(show_animation == 1)
+        fig = figure();
+        j1x = l1*sin(x(1,1));
+        j1y = -l1*cos(x(1,1));
+        j2x = j1x + l2*sin(x(2,1)+x(1,1));
+        j2y = j1y - l2*cos(x(2,1)+x(1,1));
+
+        hold on
+        joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
+        joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
+        tip = plot(j2x,j2y,'*','MarkerFaceColor','red','Color','red');
+        xlim([-1 1]);
+        ylim([-1,1]); 
+        hold off 
+        drawnow;
+    end
 
     for i = 1:time
         q_des(:,i) = Q_DES;
 
         tau(i) = K_p*(x(1:2,i)-Q_DES) + K_d*x(3:4,i) + tau_eq;
         
-        if num_exp == 0 %first experiment executed with k0, CBF-QP controller
-            [h(i), h_dot(i), u(1,i)] = CBFcontroller(x(:,i),tau(i));
+        if num_exp == 1 %first experiment executed with k0, CBF-QP controller
+            [h(i), h_dot_diff(i), h_dot_nom(i), u(1,i)] = CBFcontroller(x(:,i),tau(i));
         else
-            [h(i), h_dot(i), u(1,i)] =  LCBFcontroller(x(:,i),tau(i));
+            [h(i), h_dot_diff(i), h_dot_nom(i), u(1,i)] =  LCBFcontroller(x(:,i),tau(i));
         end
         
-        % Mass pertubation
-        a = 90;
-        b = 110;
-        r = (b-a).*rand() + a;
-        m2_var = 2*r/100;
-        
-        dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1,m2_unc],[x(:,i)',u(1,i),m2_var]);
+        dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1,m1_unc,m2_unc],[x(:,i)',u(1,i),m1_var,m2_var]);
         x(:,i+1) = x(:,i) + dt*dstate(:,i);
         
         D(1:4,i) = x(:,i);
-        D(5,i) = h_dot(i);
+        D(5,i) = u(1,i);
+        D(6,i) = h_dot_diff(i)-h_dot_nom(i);
         
+        if show_animation == 1
+            figure(fig);
+            delete(joint1);
+            delete(joint2);
+            delete(tip);
+            j1x = l1*sin(x(1,i));
+            j1y = -l1*cos(x(1,i));
+            j2x = j1x + l2*sin(x(2,i)+x(1,i));
+            j2y = j1y - l2*cos(x(2,i)+x(1,i));
+
+            hold on
+            joint1 = plot([0,j1x],[0,j1y],'-o','MarkerFaceColor','blue','Color','blue');
+            joint2 = plot([j1x,j2x],[j1y,j2y],'-','MarkerFaceColor','blue','Color','blue');
+            tip = plot(j2x,j2y,'*','MarkerFaceColor','red','Color','red');
+            xlim([-1 1]);
+            ylim([-1,1]);
+            hold off
+            drawnow();
+        end
+    end
+    %% plot
+    % show the state of the robot
+    if show_plots
+        N = (1 : time) * dt;
+        figure();
+        subplot(2,2,1);
+        plot(N,x(2,1:time),N,q_des(2,1:time))
+%          yline(Q2_MAX,'--');
+%          yline(-Q2_MAX,'--');
+        xlabel('s')
+        ylabel('q2')
+        legend('q2','q2_des');
+        title('q2 angle')
+        ylim([-0.5 0.4])
+
+
+        subplot(2,2,2);
+        plot(N,x(1,1:time),N,q_des(1,1:time))
+    %     yline(pi+Q1_MAX);
+    %     yline(pi-Q1_MAX);
+        ylim([-3 3])
+        xlabel('s')
+        ylabel('q1')
+        legend('q1','q1_des');
+        title('q1 angle')
+
+        subplot(2,2,3)
+        plot(N,x(3,1:time),N,x(4,1:time));
+        yline(1);
+        yline(-1);
+        xlabel('time');
+        ylabel('dq');
+        legend('dq1','dq2');
+        title('dq velocity');
+        ylim([-1.5 1.5])
+
+        subplot(2,2,4)
+        plot(x(2,1:time),x(4,1:time))
+        yline(1);
+        yline(-1);
+        xlabel('q2')
+        ylabel('dq2')
+        title('q2 and dq2')
+        ylim([-1.5 1.5])
+        grid on
+
+        figure;
+        subplot(1,2,1)
+        plot(N,u(1,:),N,tau)
+        xlabel('time')
+        ylabel('input torque')
+        legend('u','LQR')
+        title('Final control input vs LQR component')
+
+        subplot(1,2,2)
+        plot(N,h)
+        xlabel('time')
+        ylabel('h')
+        title('Control Barrier function')
+        grid on
     end
 end
 
-function [h, h_dot, u] = CBFcontroller(x,u_des)
-    global a1 a2 a3 a4 a5 f1 f2
+function [h, h_dot_diff, h_dot_nom, u] = CBFcontroller(x,u_des)
+    global a1 a2 a3 a4 a5 f1 f2 dt h_prev
     syms q1 q2 dq1 dq2;
 
     q1  = x(1);
@@ -217,7 +316,7 @@ function [h, h_dot, u] = CBFcontroller(x,u_des)
     alpha = 20;
 
     cbf = 0.5*(1-c_param*dq2^2);
-    cbf_dot = 0.5*(1-2*c_param*dq2);
+    cbf_dot = -c_param*dq2;
     grad = [0,0,0,-c_param*dq2];
 
     H = 1;
@@ -230,12 +329,14 @@ function [h, h_dot, u] = CBFcontroller(x,u_des)
     % disp("b:"); disp(b);
     options = optimset('display','off');
     h = cbf;
-    h_dot = cbf_dot;
+    h_dot_diff = (h - h_prev)/dt
+    h_dot_nom = cbf_dot
+    h_prev = h;
     u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
 end
 
-function [h,h_dot,u] = LCBFcontroller(x,u_des)
-    global a1 a2 a3 a4 a5 f1 f2 a_est b_est
+function [h,h_dot_diff, h_dot_nom ,u] = LCBFcontroller(x,u_des)
+    global a1 a2 a3 a4 a5 f1 f2 a_est b_est dt h_prev
     syms q1 q2 dq1 dq2;
 
     q1  = x(1);
@@ -270,7 +371,7 @@ function [h,h_dot,u] = LCBFcontroller(x,u_des)
     alpha = 20;
 
     cbf = 0.5*(1-c_param*dq2^2);
-    cbf_dot = 0.5*(1-2*c_param*dq2);
+    cbf_dot = -c_param*dq2;
     grad = [0,0,0,-c_param*dq2];
 
     H = 1;
@@ -283,7 +384,9 @@ function [h,h_dot,u] = LCBFcontroller(x,u_des)
     % disp("b:"); disp(b);
     options = optimset('display','off');
     h = cbf;
-    h_dot = cbf_dot;
+    h_dot_diff = (h - h_prev)/dt
+    h_dot_nom = cbf_dot
+    h_prev = h;
     u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
 end
 
