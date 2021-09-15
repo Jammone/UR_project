@@ -5,7 +5,7 @@ close;
 
 %% Pendubot settings
 
-global Q_DES Q1E Q2E a_est b_est
+global Q_DES Q1E Q2E
 global a1 a2 a3 a4 a5 f1 f2 K_p K_d tau_eq
 global l1 lc1 l2 lc2 I1 I2 G F
 global time show_animation show_plots h_prev
@@ -65,15 +65,13 @@ K_d = -K(3:4);
 
 %% Algorithm settings
 
-T = 1;
+T = 2;
 time = 1000;
 
 show_animation = false;
 show_plots = true;
 
 h_dot_est = zeros(1,T);
-a_est = 0;
-b_est = 0;
 
 q1_0 = pi+pi/12;
 q2_0 = -pi/12;
@@ -82,25 +80,29 @@ dq2_0 = 0;
 
 x_0 = [q1_0, q2_0, dq1_0, dq2_0];
 
+a_est_net = [];
+b_est_net = [];
+
 % w = ones(1,T); for now w = 1 for all j
 
 %% Algorithm execution
 
 for i = 1:T
     % Sample initial conditions
-    h_prev = 0;
-    D_curr = experiment(x_0,i); % Execute experiment
+    h_prev = 0.5;
+    disp([num2str(i),'th experiment started'])
+    D_curr = experiment(x_0,i,a_est_net,b_est_net); % Execute experiment
+    disp('Learning started')
     D(:,time*(i-1)+1:time*i) = D_curr; %Aggregate dataset
     % Fit estimators
-    % a_est = ...;
-    % b_est = ...;
+    [a_est_net, b_est_net] = erm(D);
     % Update controller will be directly in the experiment
-    disp(i)
+    disp([num2str(i),'th experiment done'])
 end
 
 % Aux functions
 
-function D = experiment(x_0,num_exp)
+function D = experiment(x_0,num_exp,a_est_net,b_est_net)
 
     syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m1_unc m2_unc real
     global Q_DES l1 lc1 l2 lc2 I1 I2 G F K_p K_d tau_eq 
@@ -154,7 +156,7 @@ function D = experiment(x_0,num_exp)
     u = zeros(2,time);              %the final input
     tau = zeros(1,time);            %LQR output
     
-    D = zeros(6,time);              %experiment output
+    D = zeros(7,time);              %experiment output
     h = zeros(1,time);
     h_dot_diff = zeros(1,time);
     h_dot_nom = zeros(1,time);
@@ -187,7 +189,7 @@ function D = experiment(x_0,num_exp)
         if num_exp == 1 %first experiment executed with k0, CBF-QP controller
             [h(i), h_dot_diff(i), h_dot_nom(i), u(1,i)] = CBFcontroller(x(:,i),tau(i));
         else
-            [h(i), h_dot_diff(i), h_dot_nom(i), u(1,i)] =  LCBFcontroller(x(:,i),tau(i));
+            [h(i), h_dot_diff(i), h_dot_nom(i), u(1,i)] =  LCBFcontroller(x(:,i),tau(i),a_est_net,b_est_net);
         end
         
         dstate(:,i) = subs(dx,[q1,q2,dq1,dq2,u1,m1_unc,m2_unc],[x(:,i)',u(1,i),m1_var,m2_var]);
@@ -195,7 +197,8 @@ function D = experiment(x_0,num_exp)
         
         D(1:4,i) = x(:,i);
         D(5,i) = u(1,i);
-        D(6,i) = h_dot_diff(i)-h_dot_nom(i);
+        D(6,i) = h_dot_nom(i);
+        D(7,i) = h_dot_diff(i);
         
         if show_animation == 1
             figure(fig);
@@ -224,8 +227,8 @@ function D = experiment(x_0,num_exp)
         figure();
         subplot(2,2,1);
         plot(N,x(2,1:time),N,q_des(2,1:time))
-%          yline(Q2_MAX,'--');
-%          yline(-Q2_MAX,'--');
+        % yline(Q2_MAX,'--');
+        % yline(-Q2_MAX,'--');
         xlabel('s')
         ylabel('q2')
         legend('q2','q2_des');
@@ -235,8 +238,8 @@ function D = experiment(x_0,num_exp)
 
         subplot(2,2,2);
         plot(N,x(1,1:time),N,q_des(1,1:time))
-    %     yline(pi+Q1_MAX);
-    %     yline(pi-Q1_MAX);
+        % yline(pi+Q1_MAX);
+        % yline(pi-Q1_MAX);
         ylim([-3 3])
         xlabel('s')
         ylabel('q1')
@@ -329,14 +332,14 @@ function [h, h_dot_diff, h_dot_nom, u] = CBFcontroller(x,u_des)
     % disp("b:"); disp(b);
     options = optimset('display','off');
     h = cbf;
-    h_dot_diff = (h - h_prev)/dt
-    h_dot_nom = cbf_dot
+    h_dot_diff = (h - h_prev)/dt;
+    h_dot_nom = cbf_dot;
     h_prev = h;
     u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
 end
 
-function [h,h_dot_diff, h_dot_nom ,u] = LCBFcontroller(x,u_des)
-    global a1 a2 a3 a4 a5 f1 f2 a_est b_est dt h_prev
+function [h,h_dot_diff, h_dot_nom ,u] = LCBFcontroller(x,u_des,a_est_net,b_est_net)
+    global a1 a2 a3 a4 a5 f1 f2 dt h_prev
     syms q1 q2 dq1 dq2;
 
     q1  = x(1);
@@ -377,6 +380,9 @@ function [h,h_dot_diff, h_dot_nom ,u] = LCBFcontroller(x,u_des)
     H = 1;
     f_qp = -u_des;
 
+    a_est = double(predict(a_est_net,x'));
+    b_est = double(predict(b_est_net,x'));
+
     A = -(grad*g + a_est);
     b = grad*f + alpha*cbf + b_est;
 
@@ -384,12 +390,118 @@ function [h,h_dot_diff, h_dot_nom ,u] = LCBFcontroller(x,u_des)
     % disp("b:"); disp(b);
     options = optimset('display','off');
     h = cbf;
-    h_dot_diff = (h - h_prev)/dt
-    h_dot_nom = cbf_dot
+    h_dot_diff = (h - h_prev)/dt;
+    h_dot_nom = cbf_dot;
     h_prev = h;
     u = quadprog(H,f_qp,A,b,[],[],[],[],[],options);
 end
 
-% TODO
-function erm()
+function [a_est_net, b_est_net] = erm(D)
+    trainingDatastore = getTrainingDataset(D);
+
+    num_state_features = 4;
+    num_input_features = 1;
+    num_h_dot_features = 1;
+    num_hidden_layers = 200;
+    input_layer_state = featureInputLayer(num_state_features, 'Name', 'input_state');
+    input_layer_u = featureInputLayer(num_input_features, 'Name', 'input_u');
+    input_layer_h_dot_nom = featureInputLayer(num_h_dot_features, 'Name', 'input_h_dot_nom');
+
+    layers_a = [
+        fullyConnectedLayer(num_hidden_layers, 'Name', 'full_1a')
+        tanhLayer('Name','tanh_a')
+        fullyConnectedLayer(1,'Name', 'full_2a')];
+
+    layers_b = [
+        fullyConnectedLayer(num_hidden_layers, 'Name', 'full_1b')
+        tanhLayer('Name','tanh_b')
+        fullyConnectedLayer(1,'Name', 'full_2b')];
+
+    mult = multiplicationLayer(2,'Name', 'mult');
+    add = additionLayer(3, 'Name', 'add');
+
+    output_layer = regressionLayer('Name','routput');
+
+    lgraph = layerGraph;
+    lgraph = addLayers(lgraph, input_layer_state);
+    lgraph = addLayers(lgraph, input_layer_u);
+    lgraph = addLayers(lgraph, input_layer_h_dot_nom);
+    lgraph = addLayers(lgraph,layers_a);
+    lgraph = addLayers(lgraph,layers_b);
+    lgraph = addLayers(lgraph,mult);
+    lgraph = addLayers(lgraph,add);
+    lgraph = addLayers(lgraph,output_layer);
+
+    lgraph = connectLayers(lgraph,'input_state','full_1a');
+    lgraph = connectLayers(lgraph,'input_state','full_1b');
+    lgraph = connectLayers(lgraph,'input_u','mult/in1');
+    lgraph = connectLayers(lgraph,'full_2a','mult/in2');
+    lgraph = connectLayers(lgraph,'full_2b','add/in1');
+    lgraph = connectLayers(lgraph,'mult/out','add/in2');
+    lgraph = connectLayers(lgraph,'input_h_dot_nom','add/in3');
+    lgraph = connectLayers(lgraph,'add/out','routput');
+
+%     figure
+%     plot(lgraph);
+%     analyzeNetwork(lgraph);
+
+    % Training settings and train itself
+    maxEpochs = 3000;
+    miniBatchSize = 1000;
+    learningRate = 1e-03;
+
+    options = trainingOptions('adam', ...
+        'ExecutionEnvironment','cpu', ...
+        'MaxEpochs',maxEpochs, ...
+        'MiniBatchSize',miniBatchSize, ...
+        'GradientThreshold',1, ...
+        'InitialLearnRate', learningRate, ...
+        'Verbose',true, ...
+        'Plots','training-progress');
+
+    net = trainNetwork(trainingDatastore,lgraph,options);
+
+    layers_a = [
+        net.Layers(1) %Feature input layer
+        net.Layers(4) %First fully connected layer
+        net.Layers(5) %Tanh layer
+        net.Layers(6) %Second fully connected layer
+        net.Layers(12)]; %Output layer
+
+    layers_b = [
+        net.Layers(1) %Feature input layer
+        net.Layers(7) %First fully connected layer
+        net.Layers(8) %Tanh layer
+        net.Layers(9) %Second fully connected layer
+        net.Layers(12)]; %Output layer
+
+    a_est_net = assembleNetwork(layers_a);
+    b_est_net = assembleNetwork(layers_b);
+end
+
+function trainingDatastore = getTrainingDataset(D)
+    state = D(1:4,:);
+    input_u = D(5,:);
+    h_dot_nom = D(6,:);
+    output = D(7,:);
+    
+    dataset_dim = size(D);
+    
+    stateCells = mat2cell(state,4,ones(dataset_dim(2),1));
+    inputUCells = mat2cell(input_u,1,ones(dataset_dim(2),1));
+    hDotNomCells = mat2cell(h_dot_nom,1,ones(dataset_dim(2),1));
+    outputCells = mat2cell(output,1,ones(dataset_dim(2),1));
+    stateCells = reshape(stateCells, [dataset_dim(2) 1 1]);
+    inputUCells = reshape(inputUCells, [dataset_dim(2) 1 1]);
+    hDotNomCells = reshape(hDotNomCells, [dataset_dim(2) 1 1]);
+    outputCells = reshape(outputCells, [dataset_dim(2) 1 1]);
+    combinedCells = [stateCells inputUCells hDotNomCells outputCells];
+
+    save('trainingData.mat','combinedCells');
+    filedatastore = fileDatastore('trainingData.mat','ReadFcn',@load);
+    trainingDatastore = transform(filedatastore,@rearrangeData);
+end
+
+function out = rearrangeData(ds)
+    out = ds.combinedCells;
 end
