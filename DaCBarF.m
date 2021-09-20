@@ -33,7 +33,7 @@ a4 = G*(m1*lc1+m2*l1);
 a5 = G*m2*lc2;
 
 %% LQR INIT
-   
+
 Q1E = pi-pi/18;
 
 Q2E = pi - Q1E;
@@ -65,7 +65,7 @@ K_d = -K(3:4);
 
 %% Algorithm settings
 
-T = 2;
+T = 10;
 time = 1000;
 
 show_animation = false;
@@ -73,10 +73,10 @@ show_plots = true;
 
 h_dot_est = zeros(1,T);
 
-q1_0 = pi+pi/12;
-q2_0 = -pi/12;
+q1_0 = pi-pi/12;
+q2_0 = pi/12;
 dq1_0 = 0;
-dq2_0 = 0;
+dq2_0 = 0.25;
 
 x_0 = [q1_0, q2_0, dq1_0, dq2_0];
 
@@ -240,7 +240,7 @@ function D = experiment(x_0,num_exp,a_est_net,b_est_net)
         plot(N,x(1,1:time),N,q_des(1,1:time))
         % yline(pi+Q1_MAX);
         % yline(pi-Q1_MAX);
-        ylim([-3 3])
+        ylim([2.5 3.4])
         xlabel('s')
         ylabel('q1')
         legend('q1','q1_des');
