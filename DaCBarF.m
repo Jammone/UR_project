@@ -34,7 +34,7 @@ a5 = G*m2*lc2;
 
 %% LQR INIT
 
-Q1E = pi-pi/18;
+Q1E = pi+pi/18;
 
 Q2E = pi - Q1E;
 
@@ -65,7 +65,7 @@ K_d = -K(3:4);
 
 %% Algorithm settings
 
-T = 10;
+T = 7;
 time = 1000;
 
 show_animation = false;
@@ -76,7 +76,7 @@ h_dot_est = zeros(1,T);
 q1_0 = pi-pi/12;
 q2_0 = pi/12;
 dq1_0 = 0;
-dq2_0 = 0.25;
+dq2_0 = 0;
 
 x_0 = [q1_0, q2_0, dq1_0, dq2_0];
 
@@ -451,7 +451,6 @@ function [a_est_net, b_est_net] = erm(D)
     learningRate = 1e-03;
 
     options = trainingOptions('adam', ...
-        'ExecutionEnvironment','cpu', ...
         'MaxEpochs',maxEpochs, ...
         'MiniBatchSize',miniBatchSize, ...
         'GradientThreshold',1, ...
