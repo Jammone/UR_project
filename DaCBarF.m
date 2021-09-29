@@ -7,7 +7,7 @@ close;
 
 global Q_DES Q1E Q2E
 global a1 a2 a3 a4 a5 f1 f2 K_p K_d tau_eq
-global l1 lc1 l2 lc2 I1 I2 G F
+global l1 lc1 l2 lc2 I1 I2 G F cbf_values exp_num
 global time show_animation show_plots h_prev
 
 m1 = 2;              % giunto 1 mass
@@ -67,7 +67,8 @@ K_d = -K(3:4);
 
 T = 7;
 time = 1000;
-
+cbf_values = zeros(T,time);
+exp_num = 1;
 show_animation = false;
 show_plots = true;
 
@@ -90,6 +91,7 @@ b_est_net = [];
 for i = 1:T
     % Sample initial conditions
     h_prev = 0.5;
+    exp_num =  i;
     disp([num2str(i),'th experiment started'])
     D_curr = experiment(x_0,i,a_est_net,b_est_net); % Execute experiment
     disp('Learning started')
@@ -106,7 +108,7 @@ function D = experiment(x_0,num_exp,a_est_net,b_est_net)
 
     syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m1_unc m2_unc real
     global Q_DES l1 lc1 l2 lc2 I1 I2 G F K_p K_d tau_eq 
-    global time dt show_animation show_plots
+    global time dt show_animation show_plots cbf_values exp_num
 
     dt = 0.005;
     
@@ -220,6 +222,7 @@ function D = experiment(x_0,num_exp,a_est_net,b_est_net)
             drawnow();
         end
     end
+    cbf_values(exp_num,:) = h;
     %% plot
     % show the state of the robot
     if show_plots
