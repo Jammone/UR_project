@@ -34,7 +34,7 @@ a5 = G*m2*lc2;
 
 %% LQR INIT
 
-Q1E = pi+pi/18;
+Q1E = pi-pi/18;
 
 Q2E = pi - Q1E;
 
