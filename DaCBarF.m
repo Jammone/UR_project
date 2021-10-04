@@ -65,7 +65,7 @@ K_d = -K(3:4);
 
 %% Algorithm settings
 
-T = 7;
+T = 4;
 time = 1000;
 cbf_values = zeros(T,time);
 exp_num = 1;
@@ -77,10 +77,12 @@ h_dot_est = zeros(1,T);
 q1_0 = pi-pi/12;
 q2_0 = pi/12;
 dq1_0 = 0;
-dq2_0 = 0;
+dq2_0 = 0.25;
 
 x_0 = [q1_0, q2_0, dq1_0, dq2_0];
 
+D = zeros(7,T*time);
+h_history = zeros(1,T*time);
 a_est_net = [];
 b_est_net = [];
 
@@ -93,8 +95,9 @@ for i = 1:T
     h_prev = 0.5;
     exp_num =  i;
     disp([num2str(i),'th experiment started'])
-    D_curr = experiment(x_0,i,a_est_net,b_est_net); % Execute experiment
+    [D_curr, h_curr] = experiment(x_0,i,a_est_net,b_est_net); % Execute experiment
     disp('Learning started')
+    h_history(time*(i-1)+1:time*i) = h_curr;
     D(:,time*(i-1)+1:time*i) = D_curr; %Aggregate dataset
     % Fit estimators
     [a_est_net, b_est_net] = erm(D);
@@ -104,7 +107,7 @@ end
 
 % Aux functions
 
-function D = experiment(x_0,num_exp,a_est_net,b_est_net)
+function [D,h] = experiment(x_0,num_exp,a_est_net,b_est_net)
 
     syms q1 q2 dq1 dq2 ddq1 ddq2 u1 m1_unc m2_unc real
     global Q_DES l1 lc1 l2 lc2 I1 I2 G F K_p K_d tau_eq 
